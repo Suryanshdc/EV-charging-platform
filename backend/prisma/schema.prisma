@@ -1,0 +1,147 @@
+// Prisma schema for the EV Charging Station Management Platform
+// Run `npx prisma migrate dev` after setting DATABASE_URL to create these tables.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  RIDER
+  OPERATOR
+  ADMIN
+}
+
+enum VehicleType {
+  CAR
+  BIKE
+}
+
+enum ConnectorType {
+  CCS2
+  CHADEMO
+  TYPE2
+  BHARAT_AC001
+  BHARAT_DC001
+}
+
+enum StationStatus {
+  AVAILABLE
+  CHARGING
+  RESERVED
+  OFFLINE
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum SessionStatus {
+  ACTIVE
+  COMPLETED
+  STOPPED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(RIDER)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  vehicles Vehicle[]
+  stations Station[] @relation("OperatorStations")
+  bookings Booking[]
+  sessions ChargingSession[]
+
+  @@map("users")
+}
+
+/// A vehicle the rider owns, used to check connector/brand compatibility against stations.
+model Vehicle {
+  id          String        @id @default(cuid())
+  ownerId     String
+  owner       User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  type        VehicleType
+  brand       String
+  model       String
+  connector   ConnectorType
+  createdAt   DateTime      @default(now())
+
+  @@index([ownerId])
+  @@map("vehicles")
+}
+
+/// A physical charging station. Real-world locations (for cars) are imported from
+/// Open Charge Map via services/openChargeMap.ts; two-wheeler stations are seeded
+/// separately since no public live API covers them yet.
+model Station {
+  id              String        @id @default(cuid())
+  externalId      String?       @unique // Open Charge Map POI id, when imported
+  name            String
+  address         String
+  latitude        Float
+  longitude       Float
+  vehicleTypes    VehicleType[]
+  connectors      ConnectorType[]
+  compatibleBrands String[]
+  powerKw         Float
+  pricePerKwh     Float
+  status          StationStatus @default(AVAILABLE)
+  operatorId      String?
+  operator        User?         @relation("OperatorStations", fields: [operatorId], references: [id])
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  bookings Booking[]
+  sessions ChargingSession[]
+
+  @@index([latitude, longitude])
+  @@map("stations")
+}
+
+model Booking {
+  id         String        @id @default(cuid())
+  riderId    String
+  rider      User          @relation(fields: [riderId], references: [id], onDelete: Cascade)
+  stationId  String
+  station    Station       @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  status     BookingStatus @default(PENDING)
+  startTime  DateTime      @default(now())
+  expiresAt  DateTime
+  createdAt  DateTime      @default(now())
+
+  session ChargingSession?
+
+  @@index([riderId])
+  @@index([stationId])
+  @@map("bookings")
+}
+
+model ChargingSession {
+  id          String        @id @default(cuid())
+  bookingId   String?       @unique
+  booking     Booking?      @relation(fields: [bookingId], references: [id])
+  riderId     String
+  rider       User          @relation(fields: [riderId], references: [id], onDelete: Cascade)
+  stationId   String
+  station     Station       @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  status      SessionStatus @default(ACTIVE)
+  startedAt   DateTime      @default(now())
+  endedAt     DateTime?
+  energyKwh   Float         @default(0)
+  costTotal   Float         @default(0)
+
+  @@index([riderId])
+  @@index([stationId])
+  @@map("charging_sessions")
+}
