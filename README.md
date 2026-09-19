@@ -33,6 +33,20 @@ third-party data source.
 - 🛠️ **Operator tools** — manage station status, import real stations from Open Charge Map
 - 📊 **Admin overview** — network-wide station and session counts, user directory
 
+## Screenshots
+
+### Landing Page
+![Voltway Landing Page](screenshots/landing.png)
+
+### Rider Dashboard
+![Rider Dashboard](screenshots/rider-dashboard.png)
+
+### Operator Dashboard
+![Operator Dashboard](screenshots/operator-dashboard.png)
+
+### Login
+![Login Page](screenshots/login.png)
+
 ## Tech stack
 
 | Layer | Choice | Why |
